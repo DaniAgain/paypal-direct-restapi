@@ -87,7 +87,7 @@ public class PayPalService {
         AccessTokenResponse response = restTemplate.postForObject(url, request, AccessTokenResponse.class);
 
         // Return the access token
-        return response != null ? response.getAccessToken() : null;
+        return response != null ? response.getAccess_token() : null;
     }
 
     private static class AccessTokenResponse {
@@ -98,10 +98,52 @@ public class PayPalService {
         private long expires_in;
         private String nonce;
 
-        // Getter methods
+        public String getScope() {
+            return scope;
+        }
 
-        public String getAccessToken() {
+        public void setScope(String scope) {
+            this.scope = scope;
+        }
+
+        public String getAccess_token() {
             return access_token;
+        }
+
+        public void setAccess_token(String access_token) {
+            this.access_token = access_token;
+        }
+
+        public String getToken_type() {
+            return token_type;
+        }
+
+        public void setToken_type(String token_type) {
+            this.token_type = token_type;
+        }
+
+        public String getApp_id() {
+            return app_id;
+        }
+
+        public void setApp_id(String app_id) {
+            this.app_id = app_id;
+        }
+
+        public long getExpires_in() {
+            return expires_in;
+        }
+
+        public void setExpires_in(long expires_in) {
+            this.expires_in = expires_in;
+        }
+
+        public String getNonce() {
+            return nonce;
+        }
+
+        public void setNonce(String nonce) {
+            this.nonce = nonce;
         }
 
 
