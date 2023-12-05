@@ -42,8 +42,6 @@ public class PayPalService {
             HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
             httpConn.setRequestMethod("POST");
 
-
-
             // Set request headers
             httpConn.setRequestProperty("Content-Type", "application/json");
             httpConn.setRequestProperty("Authorization", "Bearer " + accessToken);
@@ -66,6 +64,24 @@ public class PayPalService {
         }
 
     }
+
+    public String getOrderDetails(String orderId) { //utför en GET-begäran för att hämta detaljer för en specifik order baserat på dess ID
+        try {
+            String accessToken = getAccessToken();
+
+            URL url = new URL(paypalApiUrl + orderId);
+            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+            httpConn.setRequestMethod("GET");
+            httpConn.setRequestProperty("Authorization", "Bearer " + accessToken);
+
+            // Handle the response
+            return "Order Details: " + handleResponse(httpConn);
+        } catch (IOException e) {
+            e.printStackTrace(); // Handle the exception appropriately
+            return "Failed to fetch order details";
+        }
+    }
+
     private String handleResponse(HttpURLConnection httpConn) throws IOException {
         InputStream responseStream = httpConn.getResponseCode() / 100 == 2
                 ? httpConn.getInputStream()

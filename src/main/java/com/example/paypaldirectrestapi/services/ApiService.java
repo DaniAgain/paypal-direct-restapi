@@ -6,7 +6,7 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class ApiService {
 
-    private final String apiUrl = "https://api-m.sandbox.paypal.com"; // Replace with your API base URL
+    private final String apiUrl = "https://api.sandbox.paypal.com"; // Replace with your API base URL
 
     private final RestTemplate restTemplate;
 
