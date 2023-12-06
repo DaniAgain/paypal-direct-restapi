@@ -1,5 +1,11 @@
-package com.example.paypaldirectrestapi.services;// PayPalService.java
+package com.example.paypaldirectrestapi.services;
 
+import com.example.paypaldirectrestapi.models.Order;
+import com.example.paypaldirectrestapi.repositories.OrderRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -30,8 +36,14 @@ public class PayPalService {
 
     private final RestTemplate restTemplate;
 
-    public PayPalService(RestTemplate restTemplate) {
+    @Autowired
+    private OrderRepository orderRepository;
+
+    private final Order order = new Order();
+
+    public PayPalService(RestTemplate restTemplate, OrderRepository orderRepository) {
         this.restTemplate = restTemplate;
+        this.orderRepository = orderRepository;
     }
 
     public String createOrder() {
@@ -57,15 +69,62 @@ public class PayPalService {
             writer.close();
             httpConn.getOutputStream().close();
 
+
+
+
+            System.out.println(getAccessToken());
             // Handle the response
             String response = handleResponse(httpConn);
-            return "Order Created: " + response;
+            String orderId = extractOrderId(response);
+            extractOrderId(response);
+            saveOrderId(orderId);
+            System.out.println(orderId);
+
+            Order order = new Order();
+            order.setOrderId(orderId);
+            orderRepository.save(order);
+
+            return response;
+
+
         } catch (IOException e) {
             e.printStackTrace(); // Handle the exception appropriately
             return "Failed to create order";
         }
 
+
     }
+
+    public String getLatestOrderId() {
+        // Retrieve the latest orderId from the database
+        Order latestOrder = orderRepository.findTopByOrderByIdDesc();
+        if (latestOrder != null) {
+            return latestOrder.getLatestOrderId();
+        } else {
+            return "No order ID found";
+        }
+    }
+
+    private void saveOrderId(String orderId) {
+        // Save orderId to the database
+        Order order = new Order();
+        order.setOrderId(orderId);
+        orderRepository.save(order);
+    }
+
+    private String extractOrderId(String response) {
+        try {
+            JSONObject jsonResponse = new JSONObject(response);
+            return jsonResponse.getString("id");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null; // Return null if orderId extraction fails
+        }
+    }
+
+
+
+
     private String handleResponse(HttpURLConnection httpConn) throws IOException {
         InputStream responseStream = httpConn.getResponseCode() / 100 == 2
                 ? httpConn.getInputStream()
@@ -75,7 +134,7 @@ public class PayPalService {
     }
 
 
-    private String getAccessToken() {
+    public String getAccessToken() {
         String authHeader = "Basic " + Base64.getEncoder().encodeToString((paypalClientId + ":" + paypalSecret).getBytes());
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
@@ -89,6 +148,28 @@ public class PayPalService {
         // Return the access token
         return response != null ? response.getAccess_token() : null;
     }
+
+
+    public String getOrderDetails() throws IOException {
+        URL url = new URL("https://api-m.sandbox.paypal.com/v2/checkout/orders/" + getLatestOrderId());
+        HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+        httpConn.setRequestMethod("GET");
+
+        httpConn.setRequestProperty("Authorization", "Bearer " + getAccessToken());
+
+        InputStream responseStream = httpConn.getResponseCode() / 100 == 2
+                ? httpConn.getInputStream()
+                : httpConn.getErrorStream();
+        Scanner s = new Scanner(responseStream).useDelimiter("\\A");
+        String response = s.hasNext() ? s.next() : "";
+
+        // Handle the response as needed, you might want to parse JSON or do other processing
+        // For now, just printing the response
+        System.out.println(response);
+
+        return response;
+    }
+
 
     private static class AccessTokenResponse {
         private String scope;
