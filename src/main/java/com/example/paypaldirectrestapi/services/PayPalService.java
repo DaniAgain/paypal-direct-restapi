@@ -39,6 +39,8 @@ public class PayPalService {
     @Autowired
     private OrderRepository orderRepository;
 
+    private final Order order = new Order();
+
     public PayPalService(RestTemplate restTemplate, OrderRepository orderRepository) {
         this.restTemplate = restTemplate;
         this.orderRepository = orderRepository;
@@ -69,13 +71,20 @@ public class PayPalService {
 
 
 
+
             System.out.println(getAccessToken());
             // Handle the response
             String response = handleResponse(httpConn);
             String orderId = extractOrderId(response);
             extractOrderId(response);
             saveOrderId(orderId);
-            return "Order Created: " + response;
+            System.out.println(orderId);
+
+            Order order = new Order();
+            order.setOrderId(orderId);
+            orderRepository.save(order);
+
+            return response;
 
 
         } catch (IOException e) {
@@ -84,6 +93,16 @@ public class PayPalService {
         }
 
 
+    }
+
+    public String getLatestOrderId() {
+        // Retrieve the latest orderId from the database
+        Order latestOrder = orderRepository.findTopByOrderByIdDesc();
+        if (latestOrder != null) {
+            return latestOrder.getLatestOrderId();
+        } else {
+            return "No order ID found";
+        }
     }
 
     private void saveOrderId(String orderId) {
@@ -103,28 +122,7 @@ public class PayPalService {
         }
     }
 
-    private static String getOrderIdFromResponse(String jsonResponse) throws IOException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        JsonNode jsonNode = objectMapper.readTree(jsonResponse);
-        return jsonNode.get("id").asText();
-    }
 
-
-
-    public String getOrderDetails(String orderId, String accessToken) {
-        try {
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-            headers.add("Authorization", "Bearer " + accessToken);
-
-            String apiUrl = paypalApiUrl + "/v2/checkout/orders/" + orderId;
-            return restTemplate.getForObject(apiUrl, String.class, headers);
-        } catch (Exception e) {
-            e.printStackTrace(); // Handle the exception appropriately
-            return "Failed to get order details";
-        }
-    }
 
 
     private String handleResponse(HttpURLConnection httpConn) throws IOException {
@@ -150,6 +148,28 @@ public class PayPalService {
         // Return the access token
         return response != null ? response.getAccess_token() : null;
     }
+
+
+    public String getOrderDetails() throws IOException {
+        URL url = new URL("https://api-m.sandbox.paypal.com/v2/checkout/orders/" + getLatestOrderId());
+        HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+        httpConn.setRequestMethod("GET");
+
+        httpConn.setRequestProperty("Authorization", "Bearer " + getAccessToken());
+
+        InputStream responseStream = httpConn.getResponseCode() / 100 == 2
+                ? httpConn.getInputStream()
+                : httpConn.getErrorStream();
+        Scanner s = new Scanner(responseStream).useDelimiter("\\A");
+        String response = s.hasNext() ? s.next() : "";
+
+        // Handle the response as needed, you might want to parse JSON or do other processing
+        // For now, just printing the response
+        System.out.println(response);
+
+        return response;
+    }
+
 
     private static class AccessTokenResponse {
         private String scope;
