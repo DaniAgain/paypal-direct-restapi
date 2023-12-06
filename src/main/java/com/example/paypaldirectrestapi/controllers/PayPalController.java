@@ -3,14 +3,15 @@ package com.example.paypaldirectrestapi.controllers;
 import com.example.paypaldirectrestapi.models.Order;
 import com.example.paypaldirectrestapi.repositories.OrderRepository;
 import com.example.paypaldirectrestapi.services.PayPalService;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/paypal")
@@ -32,7 +33,9 @@ public class PayPalController{
     public String createOrder() {
         // Invoke the PayPal service to create an order
         String response = payPalService.createOrder();
-        return "Order Created: " + response;
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        String formattedJson = gson.toJson(response);
+        return "Order Created: " + formattedJson;
     }
 
 
@@ -40,7 +43,15 @@ public class PayPalController{
     @GetMapping("/get-order-details")
     public String getOrderDetails() throws IOException {
         String response = payPalService.getOrderDetails();
-        return "Order Created: " + response;
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        String formattedJson = gson.toJson(response);
+        return "Order Created: " + formattedJson;
+    }
+
+
+    @GetMapping("/confirm-payment/{orderId}")
+    public String confirmPaymentSource(@PathVariable String orderId) {
+            return payPalService.confirmPaymentSource(orderId);
     }
 
 

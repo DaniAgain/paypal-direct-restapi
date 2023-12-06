@@ -1,10 +1,13 @@
 package com.example.paypaldirectrestapi.services;
 
+import com.example.paypaldirectrestapi.controllers.PayPalController;
 import com.example.paypaldirectrestapi.models.Order;
 import com.example.paypaldirectrestapi.repositories.OrderRepository;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -25,6 +28,8 @@ import java.util.Scanner;
 @Service
 public class PayPalService {
 
+    private static final Logger log = LoggerFactory.getLogger(PayPalController.class);
+
     @Value("${paypal.api.url}")
     private String paypalApiUrl;
 
@@ -35,6 +40,7 @@ public class PayPalService {
     private String paypalSecret;
 
     private final RestTemplate restTemplate;
+
 
     @Autowired
     private OrderRepository orderRepository;
@@ -125,13 +131,7 @@ public class PayPalService {
 
 
 
-    private String handleResponse(HttpURLConnection httpConn) throws IOException {
-        InputStream responseStream = httpConn.getResponseCode() / 100 == 2
-                ? httpConn.getInputStream()
-                : httpConn.getErrorStream();
-        Scanner s = new Scanner(responseStream).useDelimiter("\\A");
-        return s.hasNext() ? s.next() : "";
-    }
+
 
 
     public String getAccessToken() {
@@ -168,6 +168,82 @@ public class PayPalService {
         System.out.println(response);
 
         return response;
+    }
+
+
+    public String confirmPaymentSource(String orderId) {
+        try {
+            String accessToken = getAccessToken();
+
+            // Skapa URL för att bekräfta betalningskällan för en specifik order
+            URL confirmUrl = new URL("https://api-m.sandbox.paypal.com/v2/checkout/orders/" + orderId + "/confirm-payment");
+            HttpURLConnection confirmConnection = (HttpURLConnection) confirmUrl.openConnection();
+            confirmConnection.setRequestMethod("POST");
+            confirmConnection.setRequestProperty("Authorization", "Bearer " + accessToken);
+
+            // Sätt upp JSON-payload för bekräftelse av betalningskällan
+            String confirmPayload = "{ \"payment_source\": { \"paypal\": { \"name\": { \"given_name\": \"John\", \"surname\": \"Doe\" }, \"email_address\": \"customer@example.com\", \"experience_context\": { \"payment_method_preference\": \"IMMEDIATE_PAYMENT_REQUIRED\", \"brand_name\": \"EXAMPLE INC\", \"locale\": \"en-US\", \"landing_page\": \"LOGIN\", \"shipping_preference\": \"SET_PROVIDED_ADDRESS\", \"user_action\": \"PAY_NOW\", \"return_url\": \"https://example.com/returnUrl\", \"cancel_url\": \"https://example.com/cancelUrl\" } } } }";
+
+            // Skicka JSON-payload till PayPal
+            confirmConnection.setDoOutput(true);
+            try (OutputStreamWriter confirmWriter = new OutputStreamWriter(confirmConnection.getOutputStream())) {
+                confirmWriter.write(confirmPayload);
+            }
+
+            // Läs och returnera PayPal API-responsen för bekräftelse
+            InputStream confirmResponseStream = confirmConnection.getResponseCode() / 100 == 2
+                    ? confirmConnection.getInputStream()
+                    : confirmConnection.getErrorStream();
+            String confirmResponse = new Scanner(confirmResponseStream).useDelimiter("\\A").next();
+
+            // Om bekräftelsen är lyckad, hämta godkännandelänken
+            if (confirmConnection.getResponseCode() / 100 == 2) {
+                String approvalUrl = getApprovalUrl(orderId);
+                return "Payment source confirmed. Approval URL: " + approvalUrl;
+            } else {
+                return "Failed to confirm payment source. PayPal API Response: " + confirmResponse;
+            }
+        } catch (IOException e) {
+            e.printStackTrace(); // Hantera felet lämpligt
+            return "Failed to confirm payment source";
+        }
+    }
+
+    public String getApprovalUrl(String orderId) {
+        try {
+            String accessToken = getAccessToken();
+
+            // Skapa URL för att hämta orderdetaljer från PayPal
+            URL url = new URL(paypalApiUrl + "/v2/checkout/orders/" + orderId);
+            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+            httpConn.setRequestMethod("GET");
+            httpConn.setRequestProperty("Authorization", "Bearer " + accessToken);
+
+            // Hantera PayPal API-responsen
+            String response = handleResponse(httpConn);
+
+            // Analysera responsen för att hämta godkännandelänken
+            JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
+            String approvalUrl = jsonResponse.getAsJsonObject("links")
+                    .get(String.valueOf(0))
+                    .getAsJsonObject()
+                    .get("href")
+                    .getAsString();
+
+            return approvalUrl;
+        } catch (IOException e) {
+            e.printStackTrace(); // Hantera felet lämpligt
+            return "Failed to get approval URL";
+        }
+    }
+
+
+    private String handleResponse(HttpURLConnection httpConn) throws IOException {
+        InputStream responseStream = httpConn.getResponseCode() / 100 == 2
+                ? httpConn.getInputStream()
+                : httpConn.getErrorStream();
+        Scanner s = new Scanner(responseStream).useDelimiter("\\A");
+        return s.hasNext() ? s.next() : "";
     }
 
 
