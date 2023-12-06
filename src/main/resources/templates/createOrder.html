@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Order</title>
+</head>
+<body>
+<h1>Create Order</h1>
+
+<!-- Button to initiate the order creation -->
+<form th:action="@{/paypal/create-order}" method="get">
+    <button type="submit">Start Payment</button>
+</form>
+
+<!-- Display the approval link if available -->
+<div th:if="${approveLink}">
+    <p>Order Created! Redirecting to PayPal...</p>
+    <script th:inline="javascript">
+        /* Redirect to the PayPal approval link after a short delay */
+        setTimeout(function() {
+            window.location.href = "[[${approveLink}]]";
+        }, 2000);
+    </script>
+</div>
+</body>
+</html>

@@ -1,5 +1,11 @@
-package com.example.paypaldirectrestapi.services;// PayPalService.java
+package com.example.paypaldirectrestapi.services;
 
+import com.example.paypaldirectrestapi.models.Order;
+import com.example.paypaldirectrestapi.repositories.OrderRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -30,8 +36,12 @@ public class PayPalService {
 
     private final RestTemplate restTemplate;
 
-    public PayPalService(RestTemplate restTemplate) {
+    @Autowired
+    private OrderRepository orderRepository;
+
+    public PayPalService(RestTemplate restTemplate, OrderRepository orderRepository) {
         this.restTemplate = restTemplate;
+        this.orderRepository = orderRepository;
     }
 
     public String createOrder() {
@@ -57,15 +67,66 @@ public class PayPalService {
             writer.close();
             httpConn.getOutputStream().close();
 
+
+
+            System.out.println(getAccessToken());
             // Handle the response
             String response = handleResponse(httpConn);
+            String orderId = extractOrderId(response);
+            extractOrderId(response);
+            saveOrderId(orderId);
             return "Order Created: " + response;
+
+
         } catch (IOException e) {
             e.printStackTrace(); // Handle the exception appropriately
             return "Failed to create order";
         }
 
+
     }
+
+    private void saveOrderId(String orderId) {
+        // Save orderId to the database
+        Order order = new Order();
+        order.setOrderId(orderId);
+        orderRepository.save(order);
+    }
+
+    private String extractOrderId(String response) {
+        try {
+            JSONObject jsonResponse = new JSONObject(response);
+            return jsonResponse.getString("id");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null; // Return null if orderId extraction fails
+        }
+    }
+
+    private static String getOrderIdFromResponse(String jsonResponse) throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode jsonNode = objectMapper.readTree(jsonResponse);
+        return jsonNode.get("id").asText();
+    }
+
+
+
+    public String getOrderDetails(String orderId, String accessToken) {
+        try {
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+            headers.add("Authorization", "Bearer " + accessToken);
+
+            String apiUrl = paypalApiUrl + "/v2/checkout/orders/" + orderId;
+            return restTemplate.getForObject(apiUrl, String.class, headers);
+        } catch (Exception e) {
+            e.printStackTrace(); // Handle the exception appropriately
+            return "Failed to get order details";
+        }
+    }
+
+
     private String handleResponse(HttpURLConnection httpConn) throws IOException {
         InputStream responseStream = httpConn.getResponseCode() / 100 == 2
                 ? httpConn.getInputStream()
@@ -75,7 +136,7 @@ public class PayPalService {
     }
 
 
-    private String getAccessToken() {
+    public String getAccessToken() {
         String authHeader = "Basic " + Base64.getEncoder().encodeToString((paypalClientId + ":" + paypalSecret).getBytes());
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
