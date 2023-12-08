@@ -4,13 +4,13 @@ package com.example.paypaldirectrestapi.models;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "`order`")
-public class Order {
+@Table(name = "`payment`")
+public class Payment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String orderId;
+    private String paymentId;
 
     public Long getId() {
         return id;
@@ -20,11 +20,11 @@ public class Order {
         this.id = id;
     }
 
-    public String getLatestOrderId() {
-        return orderId;
+    public String getLatestPaymentId() {
+        return paymentId;
     }
 
-    public void setOrderId(String orderId) {
-        this.orderId = orderId;
+    public void setPaymentId(String paymentId) {
+        this.paymentId = paymentId;
     }
 }

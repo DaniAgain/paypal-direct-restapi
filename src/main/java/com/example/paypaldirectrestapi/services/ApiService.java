@@ -3,7 +3,7 @@ package com.example.paypaldirectrestapi.services;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-@Service
+/*@Service
 public class ApiService {
 
     private final String apiUrl = "https://api-m.sandbox.paypal.com"; // Replace with your API base URL
@@ -20,4 +20,4 @@ public class ApiService {
     }
 
     // Add methods for other API operations as needed
-}
+}*/

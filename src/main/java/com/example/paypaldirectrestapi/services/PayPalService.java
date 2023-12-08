@@ -1,34 +1,74 @@
 package com.example.paypaldirectrestapi.services;
 
-import com.example.paypaldirectrestapi.controllers.PayPalController;
-import com.example.paypaldirectrestapi.models.Order;
-import com.example.paypaldirectrestapi.repositories.OrderRepository;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import com.paypal.api.payments.*;
+import com.paypal.base.rest.APIContext;
+import com.paypal.base.rest.PayPalRESTException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStreamWriter;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.Scanner;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
 
 @Service
+@RequiredArgsConstructor
 public class PayPalService {
 
-    private static final Logger log = LoggerFactory.getLogger(PayPalController.class);
+    private final APIContext apiContext;
+
+    public Payment createPayment(
+            Double total,
+            String currency,
+            String method,
+            String intent,
+            String description,
+            String cancelUrl,
+            String successUrl
+    ) throws PayPalRESTException {
+        Amount amount = new Amount();
+        amount.setCurrency(currency);
+        amount.setTotal(String.format(Locale.forLanguageTag(currency), "%.2f", total)); // 9.99$ - 9,99€
+
+        Transaction transaction = new Transaction();
+        transaction.setDescription(description);
+        transaction.setAmount(amount);
+
+        List<Transaction> transactions = new ArrayList<>();
+        transactions.add(transaction);
+
+        Payer payer = new Payer();
+        payer.setPaymentMethod(method);
+
+        Payment payment = new Payment();
+        payment.setIntent(intent);
+        payment.setPayer(payer);
+        payment.setTransactions(transactions);
+
+        RedirectUrls redirectUrls = new RedirectUrls();
+        redirectUrls.setCancelUrl(cancelUrl);
+        redirectUrls.setReturnUrl(successUrl);
+
+        payment.setRedirectUrls(redirectUrls);
+
+        return payment.create(apiContext);
+    }
+
+    public Payment executePayment(
+            String paymentId,
+            String payerId
+    ) throws PayPalRESTException {
+        Payment payment = new Payment();
+        payment.setId(paymentId);
+
+        PaymentExecution paymentExecution = new PaymentExecution();
+        paymentExecution.setPayerId(payerId);
+
+        return payment.execute(apiContext, paymentExecution);
+    }
+}
+
+    /*private static final Logger log = LoggerFactory.getLogger(PayPalController.class);
 
     @Value("${paypal.api.url}")
     private String paypalApiUrl;
@@ -43,11 +83,11 @@ public class PayPalService {
 
 
     @Autowired
-    private OrderRepository orderRepository;
+    private PaymentRepository orderRepository;
 
-    private final Order order = new Order();
+    private final Payment order = new Payment();
 
-    public PayPalService(RestTemplate restTemplate, OrderRepository orderRepository) {
+    public PayPalService(RestTemplate restTemplate, PaymentRepository orderRepository) {
         this.restTemplate = restTemplate;
         this.orderRepository = orderRepository;
     }
@@ -59,8 +99,6 @@ public class PayPalService {
             URL url = new URL(paypalApiUrl);
             HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
             httpConn.setRequestMethod("POST");
-
-
 
             // Set request headers
             httpConn.setRequestProperty("Content-Type", "application/json");
@@ -75,9 +113,6 @@ public class PayPalService {
             writer.close();
             httpConn.getOutputStream().close();
 
-
-
-
             System.out.println(getAccessToken());
             // Handle the response
             String response = handleResponse(httpConn);
@@ -86,7 +121,7 @@ public class PayPalService {
             saveOrderId(orderId);
             System.out.println(orderId);
 
-            Order order = new Order();
+            Payment order = new Payment();
             order.setOrderId(orderId);
             orderRepository.save(order);
 
@@ -103,7 +138,7 @@ public class PayPalService {
 
     public String getLatestOrderId() {
         // Retrieve the latest orderId from the database
-        Order latestOrder = orderRepository.findTopByOrderByIdDesc();
+        Payment latestOrder = orderRepository.findTopByOrderByIdDesc();
         if (latestOrder != null) {
             return latestOrder.getLatestOrderId();
         } else {
@@ -113,7 +148,7 @@ public class PayPalService {
 
     private void saveOrderId(String orderId) {
         // Save orderId to the database
-        Order order = new Order();
+        Payment order = new Payment();
         order.setOrderId(orderId);
         orderRepository.save(order);
     }
@@ -127,12 +162,6 @@ public class PayPalService {
             return null; // Return null if orderId extraction fails
         }
     }
-
-
-
-
-
-
 
     public String getAccessToken() {
         String authHeader = "Basic " + Base64.getEncoder().encodeToString((paypalClientId + ":" + paypalSecret).getBytes());
@@ -168,6 +197,33 @@ public class PayPalService {
         System.out.println(response);
 
         return response;
+    }
+
+    public String getApprovalUrl() {
+        try {
+            String latestOrderId = getLatestOrderId(); // Antag att du har en metod för att hämta det senaste order-ID
+            String accessToken = getAccessToken();
+
+            // Skapa URL för att hämta orderdetaljer från PayPal
+            URL url = new URL(paypalApiUrl + "/v2/checkout/orders/" + latestOrderId);
+            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+            httpConn.setRequestMethod("GET");
+            httpConn.setRequestProperty("Authorization", "Bearer " + accessToken);
+
+            // Hantera PayPal API-responsen
+            String response = handleResponse(httpConn);
+
+            // Analysera responsen för att hämta godkännandelänken
+            JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
+            String approvalUrl = jsonResponse.getAsJsonObject("links")
+                    .getAsJsonArray("rel")
+                    .getAsString();
+
+            return approvalUrl;
+        } catch (IOException e) {
+            e.printStackTrace(); // Hantera felet lämpligt
+            return "Failed to get approval URL";
+        }
     }
 
 
@@ -209,33 +265,7 @@ public class PayPalService {
         }
     }
 
-    public String getApprovalUrl(String orderId) {
-        try {
-            String accessToken = getAccessToken();
 
-            // Skapa URL för att hämta orderdetaljer från PayPal
-            URL url = new URL(paypalApiUrl + "/v2/checkout/orders/" + orderId);
-            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
-            httpConn.setRequestMethod("GET");
-            httpConn.setRequestProperty("Authorization", "Bearer " + accessToken);
-
-            // Hantera PayPal API-responsen
-            String response = handleResponse(httpConn);
-
-            // Analysera responsen för att hämta godkännandelänken
-            JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
-            String approvalUrl = jsonResponse.getAsJsonObject("links")
-                    .get(String.valueOf(0))
-                    .getAsJsonObject()
-                    .get("href")
-                    .getAsString();
-
-            return approvalUrl;
-        } catch (IOException e) {
-            e.printStackTrace(); // Hantera felet lämpligt
-            return "Failed to get approval URL";
-        }
-    }
 
 
     private String handleResponse(HttpURLConnection httpConn) throws IOException {
@@ -304,6 +334,4 @@ public class PayPalService {
         }
 
 
-    }
-
-}
+    }*/
