@@ -11,6 +11,7 @@ public class Payment {
     private Long id;
 
     private String paymentId;
+    private String payerId;
 
     public Long getId() {
         return id;
@@ -26,5 +27,17 @@ public class Payment {
 
     public void setPaymentId(String paymentId) {
         this.paymentId = paymentId;
+    }
+
+    public String getPaymentId() {
+        return paymentId;
+    }
+
+    public String getPayerId() {
+        return payerId;
+    }
+
+    public void setPayerId(String payerId) {
+        this.payerId = payerId;
     }
 }

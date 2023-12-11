@@ -7,7 +7,9 @@ import com.paypal.base.rest.PayPalRESTException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.view.RedirectView;
@@ -20,7 +22,7 @@ public class PayPalController{
 
     private final PayPalService payPalService;
 
-    @GetMapping("/home")
+    @GetMapping("/")
     public String home() {
         return "index";
     }
@@ -67,7 +69,7 @@ public class PayPalController{
                 return "paymentSuccess";
             }
         } catch (PayPalRESTException e) {
-            log.error("Error occurred: ", e);
+            log.error("Error occurred:: ", e);
         }
         return "paymentSuccess";
     }
@@ -81,9 +83,11 @@ public class PayPalController{
     public String paymentError() {
         return "paymentError";
     }
-}
+} //The views "paymentSuccess," "paymentCancel," and "paymentError" are likely associated with Thymeleaf templates for rendering HTML pages.
 
-    /*private final PaymentRepository orderRepository;
+
+
+/*private final PaymentRepository orderRepository;
 
     private final Payment order = new Payment();
 

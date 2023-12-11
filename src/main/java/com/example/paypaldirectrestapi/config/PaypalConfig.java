@@ -18,7 +18,8 @@ public class PaypalConfig {
     @Bean
     public APIContext apiContext() {
         return new APIContext (clientId, clientSecret, mode);
-    }
+    } //providing an instance of "APIContext" used throughout the application
+    //the APIContext object contains configuration information needed to interact with the PayPal API, such as authentication and endpoint details
 
 
     /*@Bean

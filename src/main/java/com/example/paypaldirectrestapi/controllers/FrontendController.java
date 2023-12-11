@@ -13,7 +13,7 @@ public class FrontendController {
     public String showStartPage(Model model) {
         // Add any necessary attributes to the model
         model.addAttribute("approveLink", null); // Set a default value or as needed
-        return "createOrder.html"; // Return the name of your Thymeleaf template
+        return "createPayment.html"; // Return the name of your Thymeleaf template
     }
 
 }
