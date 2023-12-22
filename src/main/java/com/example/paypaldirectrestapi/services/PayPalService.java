@@ -10,7 +10,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
@@ -56,11 +58,11 @@ public class PayPalService {
 
 
 
-            // Set request headers
+
             httpConn.setRequestProperty("Content-Type", "application/json");
             httpConn.setRequestProperty("Authorization", "Bearer " + accessToken);
 
-            // Set request body - JSON payload for creating an order
+
             String orderPayload = "{ \"intent\": \"CAPTURE\", \"purchase_units\": [ { \"amount\": { \"currency_code\": \"USD\", \"value\": \"100.00\" } } ] }";
             httpConn.setDoOutput(true);
             OutputStreamWriter writer = new OutputStreamWriter(httpConn.getOutputStream());
@@ -73,7 +75,7 @@ public class PayPalService {
 
 
             System.out.println(getAccessToken());
-            // Handle the response
+
             String response = handleResponse(httpConn);
             String orderId = extractOrderId(response);
             extractOrderId(response);
@@ -88,7 +90,7 @@ public class PayPalService {
 
 
         } catch (IOException e) {
-            e.printStackTrace(); // Handle the exception appropriately
+            e.printStackTrace();
             return "Failed to create order";
         }
 
@@ -96,7 +98,6 @@ public class PayPalService {
     }
 
     public String getLatestOrderId() {
-        // Retrieve the latest orderId from the database
         Order latestOrder = orderRepository.findTopByOrderByIdDesc();
         if (latestOrder != null) {
             return latestOrder.getLatestOrderId();
@@ -106,7 +107,6 @@ public class PayPalService {
     }
 
     private void saveOrderId(String orderId) {
-        // Save orderId to the database
         Order order = new Order();
         order.setOrderId(orderId);
         orderRepository.save(order);
@@ -118,7 +118,7 @@ public class PayPalService {
             return jsonResponse.getString("id");
         } catch (Exception e) {
             e.printStackTrace();
-            return null; // Return null if orderId extraction fails
+            return null;
         }
     }
 
@@ -163,12 +163,46 @@ public class PayPalService {
         Scanner s = new Scanner(responseStream).useDelimiter("\\A");
         String response = s.hasNext() ? s.next() : "";
 
-        // Handle the response as needed, you might want to parse JSON or do other processing
-        // For now, just printing the response
         System.out.println(response);
 
         return response;
     }
+
+
+
+
+
+    public String confirmPaymentSource(String orderId) {
+        try {
+
+            String confirmUrl = "https://api-m.sandbox.paypal.com/v2/checkout/orders/" + getLatestOrderId() + "/confirm-payment-source";
+
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + getAccessToken());
+            headers.set("Content-Type", "application/json");
+
+            String requestBody = "{ \"payment_source\": { \"paypal\": { \"name\": { \"given_name\": \"John\", \"surname\": \"Doe\" }, \"email_address\": \"customer@example.com\", \"experience_context\": { \"payment_method_preference\": \"IMMEDIATE_PAYMENT_REQUIRED\", \"brand_name\": \"EXAMPLE INC\", \"locale\": \"en-US\", \"landing_page\": \"LOGIN\", \"shipping_preference\": \"SET_PROVIDED_ADDRESS\", \"user_action\": \"PAY_NOW\", \"return_url\": \"https://example.com/returnUrl\", \"cancel_url\": \"https://example.com/cancelUrl\" } } } }";
+
+            HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(confirmUrl, entity, String.class);
+
+            System.out.println("Confirm Order Response: " + response.getBody());
+
+            return response.getBody();
+        } catch (HttpClientErrorException e) {
+
+            System.err.println("Error Status Code: " + e.getRawStatusCode());
+            System.err.println("Error Response: " + e.getResponseBodyAsString());
+            return "Error confirming payment source";
+        } catch (Exception e) {
+
+            e.printStackTrace();
+            return "Error confirming payment source";
+        }
+    }
+
+
 
 
     private static class AccessTokenResponse {
