@@ -21,6 +21,7 @@ public class OrderController {
         String orderId = payPalService.getLatestOrderId();
         return payPalService.confirmPaymentSource(orderId);
     }
+    //curl -X POST localhost:8080/paypal/confirm-payment-source
 
 
     @PostMapping("/authorize-order")
@@ -32,6 +33,8 @@ public class OrderController {
 
         return getStringResponseEntity(authorizeUrl);
     }
+    //curl -X POST localhost:8080/paypal/authorize-order
+
 
     private ResponseEntity<String> getStringResponseEntity(String authorizeUrl) {
         HttpHeaders headers = new HttpHeaders();
@@ -56,6 +59,7 @@ public class OrderController {
         return responseEntity;
     }
 
+
     @PostMapping("/capture-order")
     public ResponseEntity<String> captureOrder() {
 
@@ -65,6 +69,7 @@ public class OrderController {
 
         return getStringResponseEntity(captureUrl);
     }
+    //curl -X POST localhost:8080/paypal/capture-order
 
 
 
