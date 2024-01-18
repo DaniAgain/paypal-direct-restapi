@@ -13,7 +13,7 @@ public class FrontendController {
     public String showStartPage(Model model) {
 
         model.addAttribute("approveLink", null);
-        return "createOrder.html";
+        return "createOrder";
     }
 
 }
